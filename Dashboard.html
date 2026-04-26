@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SYSMON // PC Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#050a0e;--bg2:#090f14;--bg3:#0d1620;--border:#1a2e3a;
+  --glow:#00ff88;--glow2:#00c4ff;--warn:#ffc400;--danger:#ff4040;
+  --text:#b8ccd4;--text-dim:#4a6572;
+  --mono:'Share Tech Mono',monospace;--display:'Orbitron',monospace;
+}
+html{font-size:14px}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:100vh;overflow-x:hidden;display:flex;flex-direction:column}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.07) 2px,rgba(0,0,0,.07) 4px);pointer-events:none;z-index:9999}
+body.no-scanlines::before{display:none}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* ── Header ── */
+header{display:flex;align-items:center;padding:.65rem 1.1rem;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px);gap:.7rem;flex-shrink:0;flex-wrap:wrap}
+.logo{font-family:var(--display);font-weight:900;font-size:1.05rem;letter-spacing:.18em;color:var(--glow);text-shadow:0 0 20px rgba(0,255,136,.5);flex-shrink:0}
+.logo span{color:var(--text-dim)}
+.nav-tabs{display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px;flex-shrink:0}
+.nav-tab{font-family:var(--display);font-size:.56rem;letter-spacing:.11em;padding:.28rem .65rem;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-radius:3px;transition:.2s;white-space:nowrap}
+.nav-tab:hover{color:var(--text)}
+.nav-tab.active{background:var(--border);color:var(--glow)}
+.header-right{display:flex;align-items:center;gap:.65rem;margin-left:auto}
+#host-info{font-size:.7rem;color:var(--text-dim);white-space:nowrap}
+#clock{font-family:var(--display);font-size:.82rem;color:var(--glow2);letter-spacing:.1em;white-space:nowrap}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.icon-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text-dim);width:27px;height:27px;border-radius:4px;cursor:pointer;font-size:.82rem;display:flex;align-items:center;justify-content:center;transition:.2s;flex-shrink:0;padding:0;line-height:1}
+.icon-btn:hover{border-color:var(--glow);color:var(--glow)}
+
+/* ── Views ── */
+.view{display:none;flex:1}
+.view.active{display:block}
+#view-favorites.active{display:flex;flex-direction:column;height:0;overflow:hidden}
+
+/* ── Dashboard Grid ── */
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;padding:1px;background:var(--border)}
+.card{background:var(--bg2);padding:1.1rem 1.3rem;position:relative;overflow:hidden;transition:background .2s}
+.card:hover{background:var(--bg3)}
+.card::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--glow),transparent);opacity:0;transition:opacity .3s}
+.card:hover::after{opacity:.6}
+.span-2{grid-column:span 2}.span-3{grid-column:span 3}.span-4{grid-column:span 4}
+.grid.cols-2 .span-3,.grid.cols-2 .span-4{grid-column:span 2}
+.grid.cols-3 .span-4{grid-column:span 3}
+
+/* Card star button */
+.star-btn{position:absolute;top:.45rem;right:.45rem;background:transparent;border:none;color:var(--text-dim);font-size:.95rem;cursor:pointer;transition:.2s;z-index:10;line-height:1;padding:3px}
+.star-btn:hover{color:var(--warn);transform:scale(1.2)}
+.star-btn.active{color:var(--warn);text-shadow:0 0 8px rgba(255,196,0,.6)}
+
+/* ── Section label ── */
+.section-label{font-family:var(--display);font-size:.6rem;letter-spacing:.2em;color:var(--text-dim);margin-bottom:.85rem;text-transform:uppercase;display:flex;align-items:center;gap:.5rem}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── Gauge ── */
+.gauge-wrap{display:flex;flex-direction:column;align-items:center}
+.gauge-svg{width:145px;height:92px;overflow:visible;max-width:100%}
+.gauge-bg{fill:none;stroke:var(--border);stroke-width:10;stroke-linecap:round}
+.gauge-fill{fill:none;stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset .6s cubic-bezier(.4,0,.2,1),stroke .4s}
+.gauge-val{font-family:var(--display);font-size:1.85rem;font-weight:700;fill:var(--glow);text-anchor:middle;dominant-baseline:middle;filter:drop-shadow(0 0 6px rgba(0,255,136,.5))}
+.gauge-unit{font-family:var(--mono);font-size:.62rem;fill:var(--text-dim);text-anchor:middle}
+.mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-top:.65rem}
+.metric{display:flex;flex-direction:column;gap:.22rem}
+.metric-label{font-size:.65rem;color:var(--text-dim);letter-spacing:.1em}
+.metric-value{font-family:var(--display);font-size:.95rem;color:var(--glow2)}
+
+/* ── Bars ── */
+.bar-wrap{display:flex;flex-direction:column;gap:.28rem;margin-top:.3rem}
+.bar-label{display:flex;justify-content:space-between;font-size:.68rem;color:var(--text-dim)}
+.bar-label span:last-child{color:var(--text)}
+.bar-track{height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width .6s cubic-bezier(.4,0,.2,1);background:var(--glow)}
+.bar-fill.warn{background:var(--warn)}.bar-fill.danger{background:var(--danger)}
+
+/* ── Cores ── */
+.cores-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:.38rem}
+.core-cell{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:.38rem;text-align:center;transition:border-color .3s}
+.core-cell:hover{border-color:var(--glow2)}
+.core-n{font-size:.56rem;color:var(--text-dim);margin-bottom:.18rem}
+.core-v{font-family:var(--display);font-size:.78rem;transition:color .3s}
+
+/* ── Tile grids ── */
+.temp-grid,.power-grid,.fan-grid{display:flex;flex-wrap:wrap;gap:.45rem}
+.temp-tile,.power-tile,.fan-tile{background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:.45rem .65rem;min-width:95px;flex:1;transition:border-color .3s;position:relative}
+.temp-tile:hover,.power-tile:hover,.fan-tile:hover{border-color:rgba(255,255,255,.1)}
+.temp-name,.power-name,.fan-name{font-size:.62rem;color:var(--text-dim);margin-bottom:.18rem;padding-right:16px}
+.temp-val{font-family:var(--display);font-size:1.1rem;transition:color .3s}
+.power-val{font-family:var(--display);font-size:1.1rem;color:var(--warn);text-shadow:0 0 8px rgba(255,196,0,.3)}
+.fan-val{font-family:var(--display);font-size:1rem;color:var(--glow2)}
+
+/* Tile star (individual sensor) */
+.tile-star{position:absolute;top:.25rem;right:.25rem;background:transparent;border:none;color:var(--text-dim);opacity:.2;font-size:.68rem;cursor:pointer;transition:opacity .15s,color .15s;padding:1px;line-height:1}
+.temp-tile:hover .tile-star,.power-tile:hover .tile-star,.fan-tile:hover .tile-star{opacity:.7}
+.tile-star:hover{opacity:1!important}
+.tile-star.active{color:var(--warn)!important;opacity:1!important;text-shadow:0 0 5px rgba(255,196,0,.5)}
+
+/* ── Disk ── */
+.disk-row{margin-bottom:.9rem}.disk-row:last-child{margin-bottom:0}
+.disk-header{display:flex;justify-content:space-between;font-size:.68rem;margin-bottom:.28rem;color:var(--text-dim)}
+.disk-header strong{color:var(--text)}
+
+/* ── Net ── */
+.net-row{display:flex;gap:1.1rem;flex-wrap:wrap}
+.net-item{display:flex;flex-direction:column;gap:.18rem;flex:1}
+.net-label{font-size:.63rem;color:var(--text-dim);letter-spacing:.1em}
+.net-value{font-family:var(--display);font-size:.95rem;color:var(--glow2)}
+
+.no-data{font-size:.7rem;color:var(--text-dim);font-style:italic;padding:.28rem 0}
+
+/* ── Boot overlay ── */
+#overlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.4rem;z-index:9998;transition:opacity .6s}
+#overlay.hidden{opacity:0;pointer-events:none}
+.boot-logo{font-family:var(--display);font-size:2.4rem;font-weight:900;color:var(--glow);text-shadow:0 0 30px rgba(0,255,136,.6);letter-spacing:.3em}
+.boot-lines{font-size:.7rem;color:var(--text-dim);width:310px}
+.boot-line{margin-bottom:.22rem}.boot-line::before{content:'> ';color:var(--glow)}
+.boot-bar-wrap{width:310px;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.boot-bar{height:100%;background:var(--glow);width:0%;animation:boot 1.8s ease-out forwards;box-shadow:0 0 8px var(--glow)}
+@keyframes boot{0%{width:0}60%{width:70%}80%{width:85%}100%{width:100%}}
+
+/* ── Sensor big display (single sensor widget) ── */
+.sensor-display{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:80px;gap:.1rem}
+.sensor-big-val{font-family:var(--display);font-size:2.3rem;font-weight:700;line-height:1;transition:color .3s;filter:drop-shadow(0 0 8px currentColor)}
+.sensor-big-unit{font-size:.65rem;color:var(--text-dim);letter-spacing:.18em;font-family:var(--mono);margin-top:.1rem}
+
+/* ── Favorites view ── */
+#fav-toolbar{display:flex;align-items:center;gap:.55rem;padding:.45rem .9rem;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.fav-hint{font-size:.66rem;color:var(--text-dim)}
+.fav-toolbar-right{display:flex;gap:.35rem;margin-left:auto;flex-wrap:wrap;align-items:center}
+.fav-tool-btn{font-family:var(--display);font-size:.5rem;letter-spacing:.1em;padding:.26rem .55rem;background:var(--bg3);border:1px solid var(--border);color:var(--text-dim);border-radius:3px;cursor:pointer;transition:.2s;white-space:nowrap}
+.fav-tool-btn:hover{border-color:var(--glow2);color:var(--glow2)}
+.fav-tool-btn.active{border-color:var(--glow);color:var(--glow)}
+
+#fav-canvas-wrap{flex:1;overflow:auto;position:relative;background-color:var(--bg);background-image:radial-gradient(circle,var(--border) 1px,transparent 1px);background-size:20px 20px}
+#fav-canvas{position:relative;width:3000px;height:2000px}
+#fav-empty{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--text-dim);pointer-events:none;white-space:nowrap}
+.fav-empty-title{font-family:var(--display);font-size:.85rem;letter-spacing:.2em;margin-bottom:.4rem}
+.fav-empty-sub{font-size:.7rem}
+
+/* ── Fav widget ── */
+.fav-widget{position:absolute;background:var(--bg2);border:1px solid var(--border);border-radius:5px;display:flex;flex-direction:column;overflow:hidden;transition:border-color .2s,box-shadow .2s;min-width:120px;min-height:90px}
+.fav-widget:hover{border-color:rgba(0,255,136,.22);box-shadow:0 0 12px rgba(0,255,136,.07)}
+.fav-widget.dragging{border-color:var(--glow);box-shadow:0 0 20px rgba(0,255,136,.28);z-index:1000!important;opacity:.92}
+
+.fav-widget-header{display:flex;align-items:center;padding:.3rem .55rem;background:var(--bg3);border-bottom:1px solid var(--border);cursor:grab;flex-shrink:0;gap:.35rem;user-select:none;-webkit-user-select:none;touch-action:none}
+.fav-widget-header:active{cursor:grabbing}
+.fav-widget.locked .fav-widget-header{cursor:default}
+.fav-widget-title{font-family:var(--display);font-size:.52rem;letter-spacing:.16em;color:var(--text-dim);flex:1;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fav-widget-btns{display:flex;gap:.22rem;flex-shrink:0}
+.fav-btn{width:15px;height:15px;border:1px solid var(--border);background:var(--bg2);color:var(--text-dim);border-radius:2px;cursor:pointer;font-size:.58rem;display:flex;align-items:center;justify-content:center;transition:.2s;padding:0;line-height:1}
+.fav-btn:hover{border-color:var(--danger);color:var(--danger)}
+.fav-btn.scale-btn{font-size:.5rem}
+.fav-btn.scale-btn.on{border-color:var(--glow2)!important;color:var(--glow2)!important}
+
+.fav-widget-body{flex:1;padding:.65rem .85rem;overflow:auto;position:relative}
+.fav-widget-body>[data-widget]{transition:none}
+
+.fav-resize-handle{position:absolute;bottom:0;right:0;width:18px;height:18px;cursor:se-resize;touch-action:none;z-index:5}
+.fav-resize-handle::before,.fav-resize-handle::after{content:'';position:absolute;background:var(--glow);border-radius:1px;opacity:.25;transition:opacity .2s}
+.fav-resize-handle::before{width:8px;height:1.5px;bottom:5px;right:2px}
+.fav-resize-handle::after{width:1.5px;height:8px;bottom:2px;right:5px}
+.fav-widget:hover .fav-resize-handle::before,
+.fav-widget:hover .fav-resize-handle::after{opacity:1}
+.fav-widget.locked .fav-resize-handle{display:none}
+
+/* ── Settings panel ── */
+#settings-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;backdrop-filter:blur(2px)}
+#settings-overlay.open{display:block}
+#settings-panel{position:fixed;top:0;right:-360px;width:340px;height:100vh;background:var(--bg2);border-left:1px solid var(--border);z-index:600;transition:right .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden}
+#settings-panel.open{right:0}
+.sp-header{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0}
+.sp-title{font-family:var(--display);font-size:.62rem;letter-spacing:.2em;color:var(--glow)}
+.sp-close{background:transparent;border:none;color:var(--text-dim);font-size:1.15rem;cursor:pointer;line-height:1;padding:2px}
+.sp-close:hover{color:var(--text)}
+.sp-body{flex:1;overflow-y:auto;padding:.85rem 1rem}
+.sp-section{margin-bottom:1.3rem}
+.sp-section-title{font-family:var(--display);font-size:.56rem;letter-spacing:.2em;color:var(--text-dim);margin-bottom:.65rem;text-transform:uppercase;display:flex;align-items:center;gap:.45rem}
+.sp-section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.theme-presets{display:flex;gap:.6rem;flex-wrap:wrap}
+.theme-preset{display:flex;flex-direction:column;align-items:center;gap:.28rem;cursor:pointer}
+.theme-swatch{width:32px;height:32px;border-radius:50%;border:2px solid var(--border);transition:.2s}
+.theme-swatch:hover{transform:scale(1.1)}
+.theme-swatch.active{border-color:#fff;box-shadow:0 0 8px rgba(255,255,255,.35)}
+.theme-name{font-size:.48rem;color:var(--text-dim);font-family:var(--mono)}
+.color-row{display:flex;align-items:center;gap:.55rem;margin-bottom:.5rem}
+.color-label{font-size:.68rem;color:var(--text-dim);flex:1}
+.color-input{width:30px;height:21px;border:1px solid var(--border);border-radius:3px;cursor:pointer;background:transparent;padding:0}
+.color-hex{font-size:.6rem;color:var(--text-dim);width:54px;font-family:var(--mono)}
+.sp-row{display:flex;align-items:center;gap:.55rem;margin-bottom:.55rem}
+.sp-row-label{font-size:.68rem;color:var(--text-dim);flex:1}
+.sp-row-val{font-size:.65rem;color:var(--glow2);width:34px;text-align:right;font-family:var(--display)}
+input[type=range]{-webkit-appearance:none;width:85px;height:3px;background:var(--border);border-radius:2px;outline:none;flex-shrink:0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;border-radius:50%;background:var(--glow);cursor:pointer;box-shadow:0 0 5px rgba(0,255,136,.5)}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:.55rem}
+.toggle-label{font-size:.68rem;color:var(--text-dim)}
+.toggle{position:relative;width:32px;height:17px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--border);border-radius:8px;cursor:pointer;transition:.3s}
+.toggle-slider::before{content:'';position:absolute;width:11px;height:11px;left:3px;top:3px;background:var(--text-dim);border-radius:50%;transition:.3s}
+.toggle input:checked+.toggle-slider{background:rgba(0,255,136,.3)}
+.toggle input:checked+.toggle-slider::before{transform:translateX(15px);background:var(--glow);box-shadow:0 0 5px rgba(0,255,136,.5)}
+.sp-footer{padding:.75rem 1rem;border-top:1px solid var(--border);display:flex;gap:.45rem;flex-shrink:0}
+.sp-btn{flex:1;font-family:var(--display);font-size:.5rem;letter-spacing:.1em;padding:.42rem;border-radius:3px;cursor:pointer;transition:.2s;text-align:center}
+.sp-btn-primary{background:rgba(0,255,136,.11);border:1px solid var(--glow);color:var(--glow)}
+.sp-btn-primary:hover{background:rgba(0,255,136,.2)}
+.sp-btn-secondary{background:transparent;border:1px solid var(--border);color:var(--text-dim)}
+.sp-btn-secondary:hover{border-color:var(--text-dim);color:var(--text)}
+
+/* ── Compact mode ── */
+body.compact .card{padding:.55rem .7rem}
+body.compact .section-label{margin-bottom:.4rem;font-size:.5rem}
+body.compact .gauge-svg{width:110px;height:70px}
+body.compact .mini-grid{gap:.35rem;margin-top:.35rem}
+body.compact .metric-value{font-size:.8rem}
+body.compact .fav-widget-body{padding:.35rem .5rem}
+
+/* ── Responsive ── */
+@media(max-width:1100px){.grid{grid-template-columns:repeat(2,1fr)}.span-3{grid-column:span 2}.span-4{grid-column:span 2}}
+@media(max-width:600px){.grid{grid-template-columns:1fr}.span-2,.span-3,.span-4{grid-column:span 1}#host-info{display:none}#settings-panel{width:100vw;right:-100vw}}
+</style>
+</head>
+<body>
+
+<div id="settings-overlay" onclick="closeSettings()"></div>
+
+<div id="settings-panel">
+  <div class="sp-header">
+    <div class="sp-title">SETTINGS</div>
+    <button class="sp-close" onclick="closeSettings()">×</button>
+  </div>
+  <div class="sp-body">
+    <div class="sp-section">
+      <div class="sp-section-title">Theme Presets</div>
+      <div class="theme-presets" id="theme-presets"></div>
+    </div>
+    <div class="sp-section">
+      <div class="sp-section-title">Colors</div>
+      <div class="color-row"><span class="color-label">Primary Glow</span><input type="color" class="color-input" id="c-glow" oninput="liveColor('--glow','glow',this.value)"><span class="color-hex" id="cv-glow">#00ff88</span></div>
+      <div class="color-row"><span class="color-label">Secondary Glow</span><input type="color" class="color-input" id="c-glow2" oninput="liveColor('--glow2','glow2',this.value)"><span class="color-hex" id="cv-glow2">#00c4ff</span></div>
+      <div class="color-row"><span class="color-label">Warning</span><input type="color" class="color-input" id="c-warn" oninput="liveColor('--warn','warn',this.value)"><span class="color-hex" id="cv-warn">#ffc400</span></div>
+      <div class="color-row"><span class="color-label">Danger</span><input type="color" class="color-input" id="c-danger" oninput="liveColor('--danger','danger',this.value)"><span class="color-hex" id="cv-danger">#ff4040</span></div>
+      <div class="color-row"><span class="color-label">Background</span><input type="color" class="color-input" id="c-bg" oninput="liveColor('--bg','bg',this.value)"><span class="color-hex" id="cv-bg">#050a0e</span></div>
+    </div>
+    <div class="sp-section">
+      <div class="sp-section-title">Layout</div>
+      <div class="sp-row"><span class="sp-row-label">Snap Grid</span><input type="range" id="snap-range" min="10" max="50" step="10" value="20" oninput="setSnap(+this.value)"><span class="sp-row-val" id="snap-val">20px</span></div>
+      <div class="toggle-row"><span class="toggle-label">Lock Favorites Layout</span><label class="toggle"><input type="checkbox" id="tog-lock" onchange="setLock(this.checked)"><span class="toggle-slider"></span></label></div>
+      <div class="toggle-row"><span class="toggle-label">CRT Scanlines</span><label class="toggle"><input type="checkbox" id="tog-scan" checked onchange="setScanlines(this.checked)"><span class="toggle-slider"></span></label></div>
+      <div class="sp-row"><span class="sp-row-label">Dashboard Columns</span><div style="display:flex;gap:.3rem">
+        <button class="fav-tool-btn btn-col" data-n="2" onclick="setColumns(2)">2</button>
+        <button class="fav-tool-btn btn-col" data-n="3" onclick="setColumns(3)">3</button>
+        <button class="fav-tool-btn btn-col active" data-n="4" onclick="setColumns(4)">4</button>
+      </div></div>
+    </div>
+    <div class="sp-section">
+      <div class="sp-section-title">Display</div>
+      <div class="sp-row"><span class="sp-row-label">Temperature Unit</span><div style="display:flex;gap:.3rem">
+        <button class="fav-tool-btn btn-tu active" data-u="C" onclick="setTempUnit('C')">°C</button>
+        <button class="fav-tool-btn btn-tu" data-u="F" onclick="setTempUnit('F')">°F</button>
+      </div></div>
+      <div class="sp-row"><span class="sp-row-label">Clock Format</span><div style="display:flex;gap:.3rem">
+        <button class="fav-tool-btn btn-clk active" data-v="24" onclick="setClockFormat(true)">24h</button>
+        <button class="fav-tool-btn btn-clk" data-v="12" onclick="setClockFormat(false)">12h</button>
+      </div></div>
+      <div class="sp-row"><span class="sp-row-label">Refresh Rate</span><div style="display:flex;gap:.3rem">
+        <button class="fav-tool-btn btn-ref active" data-ms="1000" onclick="setRefreshRate(1000)">1s</button>
+        <button class="fav-tool-btn btn-ref" data-ms="2000" onclick="setRefreshRate(2000)">2s</button>
+        <button class="fav-tool-btn btn-ref" data-ms="5000" onclick="setRefreshRate(5000)">5s</button>
+      </div></div>
+      <div class="toggle-row"><span class="toggle-label">Compact Mode</span><label class="toggle"><input type="checkbox" id="tog-compact" onchange="setCompact(this.checked)"><span class="toggle-slider"></span></label></div>
+    </div>
+  </div>
+  <div class="sp-footer">
+    <button class="sp-btn sp-btn-secondary" onclick="resetSettings()">RESET</button>
+    <button class="sp-btn sp-btn-primary" onclick="closeSettings()">CLOSE</button>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="boot-logo">SYSMON</div>
+  <div class="boot-lines">
+    <div class="boot-line">initializing hardware sensors...</div>
+    <div class="boot-line">connecting to backend...</div>
+    <div class="boot-line">loading dashboard modules...</div>
+  </div>
+  <div class="boot-bar-wrap"><div class="boot-bar"></div></div>
+</div>
+
+<header>
+  <div class="logo">SYS<span>//</span>MON</div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" id="tab-dashboard" onclick="showView('dashboard')">DASHBOARD</button>
+    <button class="nav-tab" id="tab-favorites" onclick="showView('favorites')">★ FAVORITES</button>
+  </div>
+  <div class="header-right">
+    <div id="host-info">–</div>
+    <div id="clock">--:--:--</div>
+    <button class="icon-btn" id="btn-fs" onclick="toggleFS()" title="Fullscreen">⛶</button>
+    <button class="icon-btn" onclick="openSettings()" title="Settings">⚙</button>
+    <div class="status-dot" id="status-dot" style="background:#4a6572;box-shadow:none"></div>
+  </div>
+</header>
+
+<!-- Dashboard view -->
+<div id="view-dashboard" class="view active">
+<div class="grid">
+  <div class="card"><button class="star-btn" id="star-cpu" onclick="toggleFav('cpu')">☆</button><div class="section-label">CPU Load</div><div data-widget="cpu"></div></div>
+  <div class="card"><button class="star-btn" id="star-ram" onclick="toggleFav('ram')">☆</button><div class="section-label">Memory</div><div data-widget="ram"></div></div>
+  <div class="card span-2"><button class="star-btn" id="star-cores" onclick="toggleFav('cores')">☆</button><div class="section-label">Core Load</div><div data-widget="cores"></div></div>
+  <div class="card span-2"><button class="star-btn" id="star-temperature" onclick="toggleFav('temperature')">☆</button><div class="section-label">Temperature</div><div data-widget="temperature"></div></div>
+  <div class="card span-2"><button class="star-btn" id="star-power" onclick="toggleFav('power')">☆</button><div class="section-label">Power / Wattage</div><div data-widget="power"></div></div>
+  <div class="card span-2"><button class="star-btn" id="star-disks" onclick="toggleFav('disks')">☆</button><div class="section-label">Storage</div><div data-widget="disks"></div></div>
+  <div class="card span-2"><button class="star-btn" id="star-fans" onclick="toggleFav('fans')">☆</button><div class="section-label">Fans RPM</div><div data-widget="fans"></div></div>
+  <div class="card span-2"><button class="star-btn" id="star-gpu" onclick="toggleFav('gpu')">☆</button><div class="section-label">GPU</div><div data-widget="gpu"></div></div>
+  <div class="card span-2"><button class="star-btn" id="star-memdetail" onclick="toggleFav('memdetail')">☆</button><div class="section-label">Memory Detail</div><div data-widget="memdetail"></div></div>
+  <div class="card span-4"><button class="star-btn" id="star-network" onclick="toggleFav('network')">☆</button><div class="section-label">Network I/O</div><div data-widget="network"></div></div>
+</div>
+</div>
+
+<!-- Favorites view -->
+<div id="view-favorites" class="view">
+  <div id="fav-toolbar">
+    <span class="fav-hint" id="fav-hint">Drag header · Resize corner · ⊡ = scale content</span>
+    <div class="fav-toolbar-right">
+      <button class="fav-tool-btn" onclick="fitAll()">FIT ALL</button>
+      <button class="fav-tool-btn" onclick="resetFavLayout()">RESET</button>
+      <button class="fav-tool-btn" onclick="toggleFS()">⛶ FULLSCREEN</button>
+    </div>
+  </div>
+  <div id="fav-canvas-wrap">
+    <div id="fav-canvas">
+      <div id="fav-empty">
+        <div class="fav-empty-title">NO FAVORITES</div>
+        <div class="fav-empty-sub">Star widgets or individual sensors on the Dashboard tab</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const BACKEND = `${window.location.protocol}//${window.location.hostname}:${window.location.port}`;
+const ARC_LEN = 220;
+let SNAP = 20, layoutLocked = false, lastData = null, favZMax = 10;
+let tempUnit = 'C', clock24h = true, refreshMs = 1000, lastRenderTs = 0;
+let _prevNet = null, _prevNetTime = null;
+
+// ── Storage ───────────────────────────────────────────────────────────────────
+const loadFavs = ()=>{ try{return JSON.parse(localStorage.getItem('sm_favs')||'{}')}catch{return{}} };
+const saveFavs = f => localStorage.setItem('sm_favs', JSON.stringify(f));
+const loadSettings = ()=>{ try{return Object.assign({},DEF,JSON.parse(localStorage.getItem('sm_settings')||'{}'))}catch{return{...DEF}} };
+const saveSettings = s => localStorage.setItem('sm_settings', JSON.stringify(s));
+
+// ── Themes ────────────────────────────────────────────────────────────────────
+const THEMES = {
+  cyber: {glow:'#00ff88',glow2:'#00c4ff',warn:'#ffc400',danger:'#ff4040',bg:'#050a0e',bg2:'#090f14',border:'#1a2e3a'},
+  neon:  {glow:'#ff00ff',glow2:'#00ffff',warn:'#ffff00',danger:'#ff0055',bg:'#080010',bg2:'#0d0018',border:'#2a1040'},
+  amber: {glow:'#ffb000',glow2:'#ff6600',warn:'#ffff00',danger:'#ff2200',bg:'#0a0800',bg2:'#110d00',border:'#2a2000'},
+  red:   {glow:'#ff4040',glow2:'#ff8800',warn:'#ffff00',danger:'#ff0000',bg:'#0e0505',bg2:'#150808',border:'#3a1515'},
+  purple:{glow:'#b040ff',glow2:'#6080ff',warn:'#ffc400',danger:'#ff4040',bg:'#080510',bg2:'#0d0818',border:'#2a1550'},
+};
+const DEF = {theme:'cyber',glow:'#00ff88',glow2:'#00c4ff',warn:'#ffc400',danger:'#ff4040',bg:'#050a0e',bg2:'#090f14',border:'#1a2e3a',snap:20,locked:false,scanlines:true,tempUnit:'C',cols:4,clock24h:true,refreshMs:1000,compact:false};
+
+function applyTheme(name){
+  const t=THEMES[name]; if(!t) return;
+  const s=loadSettings(); Object.assign(s,t,{theme:name}); saveSettings(s); applyDOM(s); syncUI(s);
+}
+function applyDOM(s){
+  const r=document.documentElement.style;
+  ['glow','glow2','warn','danger','bg','bg2','border'].forEach(k=>s[k]&&r.setProperty('--'+k,s[k]));
+  SNAP=s.snap||20; layoutLocked=!!s.locked; tempUnit=s.tempUnit||'C';
+  clock24h=s.clock24h!==false; refreshMs=s.refreshMs||1000;
+  document.body.classList.toggle('no-scanlines',s.scanlines===false);
+  document.body.classList.toggle('compact',!!s.compact);
+  const cw=document.getElementById('fav-canvas-wrap');
+  if(cw) cw.style.backgroundSize=SNAP+'px '+SNAP+'px';
+  const g=document.querySelector('.grid');
+  if(g){ const nc=s.cols||4; g.style.gridTemplateColumns=`repeat(${nc},1fr)`; g.className=g.className.replace(/\bcols-\d\b/g,''); if(nc<4) g.classList.add('cols-'+nc); }
+}
+function liveColor(v,k,val){
+  document.documentElement.style.setProperty(v,val);
+  const h=document.getElementById('cv-'+k); if(h) h.textContent=val;
+  const s=loadSettings(); s[k]=val; s.theme='custom'; saveSettings(s);
+  document.querySelectorAll('.theme-swatch').forEach(b=>b.classList.toggle('active',b.dataset.theme==='custom'));
+}
+function setSnap(v){
+  SNAP=v; document.getElementById('snap-val').textContent=v+'px';
+  const cw=document.getElementById('fav-canvas-wrap'); if(cw) cw.style.backgroundSize=v+'px '+v+'px';
+  const s=loadSettings(); s.snap=v; saveSettings(s);
+}
+function setLock(v){
+  layoutLocked=v;
+  document.querySelectorAll('.fav-widget').forEach(w=>w.classList.toggle('locked',v));
+  document.getElementById('fav-hint').textContent=v?'Layout locked':'Drag header · Resize corner · ⊡ = scale content';
+  const s=loadSettings(); s.locked=v; saveSettings(s);
+}
+function setScanlines(v){ document.body.classList.toggle('no-scanlines',!v); const s=loadSettings(); s.scanlines=v; saveSettings(s); }
+function resetSettings(){ saveSettings({...DEF}); applyTheme('cyber'); }
+function syncUI(s){
+  ['glow','glow2','warn','danger','bg'].forEach(k=>{
+    const i=document.getElementById('c-'+k); if(i) i.value=s[k]||DEF[k];
+    const h=document.getElementById('cv-'+k); if(h) h.textContent=s[k]||DEF[k];
+  });
+  const sr=document.getElementById('snap-range'); if(sr) sr.value=s.snap||20;
+  const sv=document.getElementById('snap-val'); if(sv) sv.textContent=(s.snap||20)+'px';
+  const tl=document.getElementById('tog-lock'); if(tl) tl.checked=!!s.locked;
+  const ts=document.getElementById('tog-scan'); if(ts) ts.checked=s.scanlines!==false;
+  document.querySelectorAll('.theme-swatch').forEach(b=>b.classList.toggle('active',b.dataset.theme===s.theme));
+  const tu=s.tempUnit||'C'; document.querySelectorAll('.btn-tu').forEach(b=>b.classList.toggle('active',b.dataset.u===tu));
+  const nc=s.cols||4; document.querySelectorAll('.btn-col').forEach(b=>b.classList.toggle('active',+b.dataset.n===nc));
+  const c24=s.clock24h!==false?'24':'12'; document.querySelectorAll('.btn-clk').forEach(b=>b.classList.toggle('active',b.dataset.v===c24));
+  const rms=s.refreshMs||1000; document.querySelectorAll('.btn-ref').forEach(b=>b.classList.toggle('active',+b.dataset.ms===rms));
+  const tc=document.getElementById('tog-compact'); if(tc) tc.checked=!!s.compact;
+}
+function buildThemePresets(){
+  const names={cyber:'Cyber',neon:'Neon',amber:'Amber',red:'Red',purple:'Purple'};
+  const s=loadSettings();
+  document.getElementById('theme-presets').innerHTML=Object.entries(THEMES).map(([k,t])=>`
+    <div class="theme-preset" onclick="applyTheme('${k}')">
+      <div class="theme-swatch ${s.theme===k?'active':''}" data-theme="${k}" style="background:linear-gradient(135deg,${t.glow},${t.glow2})"></div>
+      <span class="theme-name">${names[k]}</span>
+    </div>`).join('');
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const tempColor = c => c>=90?'var(--danger)':c>=70?'var(--warn)':'var(--glow)';
+const barClass  = p => p>=90?'danger':p>=70?'warn':'';
+const ea = s => s.replace(/&/g,'&amp;').replace(/"/g,'&quot;'); // escape for HTML attr
+function tsFav(btn){ toggleSensorFav(btn.dataset.stype, btn.dataset.sname); }
+
+// ── Sensor widget system ──────────────────────────────────────────────────────
+// Sensor IDs use format: "TYPE::SENSOR_NAME"  e.g. "temp::CPU Package"
+const isSensorId = id => id.includes('::');
+const sensorParts = id => { const i=id.indexOf('::'); return [id.slice(0,i), id.slice(i+2)]; };
+
+const SENSOR_TYPES = {
+  temp: { get unit(){ return tempUnit==='F'?'°F':'°C'; }, color: v=>tempColor(v), fmt: v=>tempUnit==='F'?(v*9/5+32).toFixed(1):v.toFixed(1), data: d=>d.temperatures, defLabel:'Temperature' },
+  pwr:  { unit:'W',   color: _=>'var(--warn)',         fmt: v=>v.toFixed(1), data: d=>d.power_watts,  defLabel:'Power' },
+  fan:  { unit:'RPM', color: _=>'var(--glow2)',        fmt: v=>Math.round(v).toString(), data: d=>d.fans_rpm, defLabel:'Fan' },
+  gpu:  { unit:'%',   color: _=>'var(--glow2)',        fmt: v=>v.toFixed(1), data: d=>d.gpu_load,     defLabel:'GPU' },
+};
+
+function initSensorWidget(el){
+  el.innerHTML=`<div class="sensor-display"><span class="sensor-big-val" data-sv>–</span><span class="sensor-big-unit" data-su></span></div>`;
+  el.dataset.initialized='1';
+}
+function updateSensorWidget(el, id, data){
+  const [type,name]=sensorParts(id);
+  const st=SENSOR_TYPES[type]; if(!st) return;
+  const map=st.data(data);
+  const v=(map&&map[name]!=null)?map[name]:null;
+  const sv=el.querySelector('[data-sv]');
+  const su=el.querySelector('[data-su]');
+  if(sv){ sv.textContent=v!=null?st.fmt(v):'–'; sv.style.color=v!=null?st.color(v):'var(--text-dim)'; }
+  if(su) su.textContent=st.unit;
+}
+
+// ── Widget Definitions ────────────────────────────────────────────────────────
+const WIDGETS = {
+  cpu: {
+    label:'CPU Load', defaultW:270, defaultH:250, minW:190, minH:190,
+    refW:235, refH:210,
+    init(el){ el.innerHTML=`
+      <div class="gauge-wrap">
+        <svg class="gauge-svg" viewBox="0 0 160 100">
+          <path class="gauge-bg" d="M20,90 A70,70 0 0,1 140,90"/>
+          <path class="gauge-fill" data-arc d="M20,90 A70,70 0 0,1 140,90" stroke="var(--glow)" stroke-dasharray="220" stroke-dashoffset="220"/>
+          <text class="gauge-val" data-val x="80" y="78">0%</text>
+          <text class="gauge-unit" x="80" y="94">UTILIZATION</text>
+        </svg>
+      </div>
+      <div class="mini-grid">
+        <div class="metric"><div class="metric-label">FREQ</div><div class="metric-value" data-f="freq">— MHz</div></div>
+        <div class="metric"><div class="metric-label">CORES</div><div class="metric-value" data-f="cores">—</div></div>
+      </div>`; },
+    update(el,d){
+      if(!d.cpu) return;
+      const cp=d.cpu.percent;
+      const arc=el.querySelector('[data-arc]');
+      if(arc){arc.style.strokeDashoffset=ARC_LEN-(cp/100)*ARC_LEN;arc.style.stroke=cp<60?'var(--glow)':cp<85?'var(--warn)':'var(--danger)';}
+      const v=el.querySelector('[data-val]'); if(v) v.textContent=cp.toFixed(0)+'%';
+      const f=el.querySelector('[data-f="freq"]'); if(f) f.textContent=d.cpu.freq_mhz+' MHz';
+      const c=el.querySelector('[data-f="cores"]'); if(c) c.textContent=`${d.cpu.physical_cores}P / ${d.cpu.logical_cores}L`;
+    }
+  },
+  ram: {
+    label:'Memory', defaultW:270, defaultH:250, minW:190, minH:190,
+    refW:235, refH:210,
+    init(el){ el.innerHTML=`
+      <div class="gauge-wrap">
+        <svg class="gauge-svg" viewBox="0 0 160 100">
+          <path class="gauge-bg" d="M20,90 A70,70 0 0,1 140,90"/>
+          <path class="gauge-fill" data-arc d="M20,90 A70,70 0 0,1 140,90" stroke="var(--glow2)" stroke-dasharray="220" stroke-dashoffset="220"/>
+          <text class="gauge-val" data-val x="80" y="78" fill="var(--glow2)">0%</text>
+          <text class="gauge-unit" x="80" y="94">RAM USED</text>
+        </svg>
+      </div>
+      <div class="mini-grid">
+        <div class="metric"><div class="metric-label">USED</div><div class="metric-value" data-f="used">— GB</div></div>
+        <div class="metric"><div class="metric-label">TOTAL</div><div class="metric-value" data-f="total">— GB</div></div>
+      </div>`; },
+    update(el,d){
+      if(!d.memory) return;
+      const rp=d.memory.percent;
+      const arc=el.querySelector('[data-arc]'); if(arc) arc.style.strokeDashoffset=ARC_LEN-(rp/100)*ARC_LEN;
+      const v=el.querySelector('[data-val]'); if(v) v.textContent=rp.toFixed(0)+'%';
+      const u=el.querySelector('[data-f="used"]'); if(u) u.textContent=d.memory.used_gb+' GB';
+      const t=el.querySelector('[data-f="total"]'); if(t) t.textContent=d.memory.total_gb+' GB';
+    }
+  },
+  cores: {
+    label:'Core Load', defaultW:370, defaultH:195, minW:240, minH:130,
+    refW:340, refH:165,
+    init(el){ el.innerHTML='<div class="cores-grid"></div>'; },
+    update(el,d){
+      if(!d.cpu?.per_core?.length) return;
+      const g=el.querySelector('.cores-grid'); if(!g) return;
+      g.innerHTML=d.cpu.per_core.map((v,i)=>`
+        <div class="core-cell">
+          <div class="core-n">C${i}</div>
+          <div class="core-v" style="color:${v>85?'var(--danger)':v>60?'var(--warn)':'var(--glow)'}">${v.toFixed(0)}%</div>
+        </div>`).join('');
+    }
+  },
+  temperature: {
+    label:'Temperature', defaultW:390, defaultH:195, minW:260, minH:110,
+    refW:355, refH:165,
+    init(el){ el.innerHTML='<div class="temp-grid"></div>'; },
+    update(el,d){
+      const g=el.querySelector('.temp-grid'); if(!g) return;
+      const temps=d.temperatures||{};
+      const favs=loadFavs();
+      if(Object.keys(temps).length){
+        g.innerHTML=Object.entries(temps).map(([n,v])=>`
+          <div class="temp-tile">
+            <button class="tile-star ${favs['temp::'+n]?'active':''}" data-stype="temp" data-sname="${ea(n)}" onclick="tsFav(this)" title="Add to favorites">★</button>
+            <div class="temp-name">${n}</div>
+            <div class="temp-val" style="color:${tempColor(v)}">${tempUnit==='F'?(v*9/5+32).toFixed(1)+'°F':v.toFixed(1)+'°C'}</div>
+          </div>`).join('');
+      } else g.innerHTML='<div class="no-data">Nessun sensore disponibile</div>';
+    }
+  },
+  power: {
+    label:'Power / Wattage', defaultW:370, defaultH:155, minW:240, minH:100,
+    refW:340, refH:125,
+    init(el){ el.innerHTML='<div class="power-grid"></div>'; },
+    update(el,d){
+      const g=el.querySelector('.power-grid'); if(!g) return;
+      const pwr=d.power_watts||{};
+      const favs=loadFavs();
+      if(Object.keys(pwr).length){
+        g.innerHTML=Object.entries(pwr).map(([n,v])=>`
+          <div class="power-tile">
+            <button class="tile-star ${favs['pwr::'+n]?'active':''}" data-stype="pwr" data-sname="${ea(n)}" onclick="tsFav(this)" title="Add to favorites">★</button>
+            <div class="power-name">${n}</div>
+            <div class="power-val">${v.toFixed(1)} W</div>
+          </div>`).join('');
+      } else g.innerHTML='<div class="no-data">Richiede LibreHardwareMonitor</div>';
+    }
+  },
+  disks: {
+    label:'Storage', defaultW:370, defaultH:215, minW:260, minH:130,
+    refW:340, refH:185,
+    init(el){ el.innerHTML='<div class="disk-list"></div>'; },
+    update(el,d){
+      const g=el.querySelector('.disk-list'); if(!g||!d.disks?.length) return;
+      g.innerHTML=d.disks.map(disk=>`
+        <div class="disk-row">
+          <div class="disk-header"><strong>${disk.device} (${disk.mountpoint})</strong><span>${disk.used_gb}/${disk.total_gb}GB · ${disk.percent}%</span></div>
+          <div class="bar-track"><div class="bar-fill ${barClass(disk.percent)}" style="width:${disk.percent}%"></div></div>
+        </div>`).join('');
+    }
+  },
+  fans: {
+    label:'Fans RPM', defaultW:370, defaultH:155, minW:240, minH:100,
+    refW:340, refH:125,
+    init(el){ el.innerHTML='<div class="fan-grid"></div>'; },
+    update(el,d){
+      const g=el.querySelector('.fan-grid'); if(!g) return;
+      const fans=d.fans_rpm||{};
+      const favs=loadFavs();
+      if(Object.keys(fans).length){
+        g.innerHTML=Object.entries(fans).map(([n,v])=>`
+          <div class="fan-tile">
+            <button class="tile-star ${favs['fan::'+n]?'active':''}" data-stype="fan" data-sname="${ea(n)}" onclick="tsFav(this)" title="Add to favorites">★</button>
+            <div class="fan-name">${n}</div>
+            <div class="fan-val">${Math.round(v)} <span style="font-size:.52rem;color:var(--text-dim)">RPM</span></div>
+          </div>`).join('');
+      } else g.innerHTML='<div class="no-data">Richiede LibreHardwareMonitor</div>';
+    }
+  },
+  gpu: {
+    label:'GPU', defaultW:370, defaultH:155, minW:240, minH:100,
+    refW:340, refH:125,
+    init(el){ el.innerHTML='<div class="temp-grid"></div>'; },
+    update(el,d){
+      const g=el.querySelector('.temp-grid'); if(!g) return;
+      const gpu=d.gpu_load||{};
+      const favs=loadFavs();
+      if(Object.keys(gpu).length){
+        g.innerHTML=Object.entries(gpu).map(([n,v])=>`
+          <div class="temp-tile">
+            <button class="tile-star ${favs['gpu::'+n]?'active':''}" data-stype="gpu" data-sname="${ea(n)}" onclick="tsFav(this)" title="Add to favorites">★</button>
+            <div class="temp-name">${n}</div>
+            <div class="temp-val" style="color:var(--glow2)">${v!=null?v.toFixed(1)+'%':'–'}</div>
+          </div>`).join('');
+      } else g.innerHTML='<div class="no-data">Richiede LibreHardwareMonitor</div>';
+    }
+  },
+  memdetail: {
+    label:'Memory Detail', defaultW:370, defaultH:175, minW:260, minH:130,
+    refW:340, refH:145,
+    init(el){ el.innerHTML='<div class="no-data">In attesa…</div>'; },
+    update(el,d){
+      if(!d.memory) return;
+      const m=d.memory;
+      el.innerHTML=`
+        <div class="bar-wrap"><div class="bar-label"><span>RAM</span><span>${m.used_gb} / ${m.total_gb} GB</span></div><div class="bar-track"><div class="bar-fill ${barClass(m.percent)}" style="width:${m.percent}%"></div></div></div>
+        <div class="bar-wrap" style="margin-top:.7rem"><div class="bar-label"><span>SWAP</span><span>${m.swap_used_gb} / ${m.swap_total_gb} GB</span></div><div class="bar-track"><div class="bar-fill ${barClass(m.swap_percent)}" style="width:${m.swap_percent}%"></div></div></div>`;
+    }
+  },
+  network: {
+    label:'Network I/O', defaultW:490, defaultH:135, minW:350, minH:100,
+    refW:455, refH:105,
+    init(el){ el.innerHTML=`
+      <div class="net-row">
+        <div class="net-item"><div class="net-label">↑ UPLOAD</div><div class="net-value" data-f="sent">—</div></div>
+        <div class="net-item"><div class="net-label">↓ DOWNLOAD</div><div class="net-value" data-f="recv">—</div></div>
+        <div class="net-item"><div class="net-label">PKTS SENT</div><div class="net-value" data-f="psent">—</div></div>
+        <div class="net-item"><div class="net-label">PKTS RECV</div><div class="net-value" data-f="precv">—</div></div>
+      </div>`; },
+    update(el,d){
+      if(!d.network) return;
+      const net=d.network;
+      const hasSp=net.sent_mbs!=null;
+      const sv=el.querySelector('[data-f="sent"]'); if(sv) sv.textContent=hasSp?net.sent_mbs.toFixed(2)+' MB/s':net.bytes_sent_mb+' MB';
+      const rv=el.querySelector('[data-f="recv"]'); if(rv) rv.textContent=hasSp?net.recv_mbs.toFixed(2)+' MB/s':net.bytes_recv_mb+' MB';
+      const ps=el.querySelector('[data-f="psent"]'); if(ps) ps.textContent=net.packets_sent.toLocaleString();
+      const pr=el.querySelector('[data-f="precv"]'); if(pr) pr.textContent=net.packets_recv.toLocaleString();
+    }
+  },
+};
+
+// Unified lookup for both widget and sensor favorites
+function getFavDef(id){
+  if(isSensorId(id)){
+    const [type,name]=sensorParts(id);
+    const st=SENSOR_TYPES[type]||{defLabel:'Sensor'};
+    return {label:name, defaultW:155, defaultH:135, minW:110, minH:90, refW:125, refH:105, isSensor:true};
+  }
+  return WIDGETS[id]||null;
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function ensureInit(el){
+  if(el.dataset.initialized) return;
+  const id=el.dataset.widget;
+  if(isSensorId(id)){ initSensorWidget(el); }
+  else { const d=WIDGETS[id]; if(d){ d.init(el); el.dataset.initialized='1'; } }
+}
+
+function render(data){
+  lastData=data;
+  // compute network speed
+  if(data.network){
+    const now=data.timestamp;
+    if(_prevNet && _prevNetTime){
+      const dt=now-_prevNetTime;
+      if(dt>0.001){
+        data.network.sent_mbs=Math.max(0,(data.network.bytes_sent_mb-_prevNet.sent)/dt);
+        data.network.recv_mbs=Math.max(0,(data.network.bytes_recv_mb-_prevNet.recv)/dt);
+      }
+    }
+    _prevNet={sent:data.network.bytes_sent_mb,recv:data.network.bytes_recv_mb};
+    _prevNetTime=now;
+  }
+  document.getElementById('host-info').textContent=`${data.platform} · ${data.os}`;
+  const _fc=loadFavs();
+  document.querySelectorAll('[data-widget]').forEach(el=>{
+    ensureInit(el);
+    const id=el.dataset.widget;
+    if(isSensorId(id)){ updateSensorWidget(el,id,data); }
+    else { const d=WIDGETS[id]; if(d) d.update(el,data); }
+    const fw=el.closest('.fav-widget');
+    if(fw) applyScale(fw,_fc);
+  });
+}
+
+// ── Scale mode ────────────────────────────────────────────────────────────────
+function applyScale(fw, _favs){
+  const id=fw.dataset.id;
+  const favs=_favs||loadFavs();
+  const body=fw.querySelector('.fav-widget-body');
+  const inner=body?.querySelector('[data-widget]');
+  if(!inner||!body) return;
+
+  if(!favs[id]?.scale){
+    inner.style.transform='';
+    inner.style.width='';
+    inner.style.height='';
+    inner.style.overflow='';
+    inner.style.flexShrink='';
+    body.style.overflow='auto';
+    body.style.padding='';
+    body.style.display='';
+    body.style.alignItems='';
+    body.style.justifyContent='';
+    return;
+  }
+
+  const def=getFavDef(id);
+  const refW=def?.refW||220;
+  const refH=def?.refH||160;
+
+  body.style.padding='0';
+  body.style.overflow='hidden';
+  body.style.display='flex';
+  body.style.alignItems='center';
+  body.style.justifyContent='center';
+
+  const bw=body.clientWidth, bh=body.clientHeight;
+  if(!bw||!bh) return;
+
+  const scale=Math.min(bw/refW, bh/refH);
+  inner.style.transformOrigin='center center';
+  inner.style.transform=`scale(${scale})`;
+  inner.style.width=refW+'px';
+  inner.style.height=refH+'px';
+  inner.style.overflow='visible';
+  inner.style.flexShrink='0';
+}
+
+function toggleWidgetScale(id){
+  const favs=loadFavs();
+  if(!favs[id]) return;
+  favs[id].scale=!favs[id].scale;
+  saveFavs(favs);
+  // avoid CSS.escape issues with :: in sensor IDs — use dataset comparison
+  const fw=[...document.querySelectorAll('.fav-widget')].find(el=>el.dataset.id===id);
+  if(!fw) return;
+  const btn=fw.querySelector('.scale-btn');
+  if(btn) btn.classList.toggle('on',favs[id].scale);
+  applyScale(fw);
+}
+
+// ── Favorites management ──────────────────────────────────────────────────────
+function toggleFav(id){
+  const favs=loadFavs();
+  if(favs[id]){ delete favs[id]; }
+  else {
+    const n=Object.keys(favs).length, def=WIDGETS[id];
+    if(!def) return;
+    favs[id]={x:20+(n%4)*25,y:20+Math.floor(n/4)*35,w:def.defaultW,h:def.defaultH,scale:false};
+  }
+  saveFavs(favs); updateStars(); rebuildCanvas();
+}
+
+function toggleSensorFav(type,name){
+  const id=type+'::'+name;
+  const favs=loadFavs();
+  if(favs[id]){ delete favs[id]; }
+  else {
+    const n=Object.keys(favs).length;
+    favs[id]={x:20+(n%6)*22,y:20+Math.floor(n/6)*28,w:155,h:135,scale:false};
+  }
+  saveFavs(favs); updateStars(); rebuildCanvas();
+}
+
+function removeFav(id){
+  const favs=loadFavs(); delete favs[id]; saveFavs(favs); updateStars(); rebuildCanvas();
+}
+
+function updateStars(){
+  const favs=loadFavs();
+  Object.keys(WIDGETS).forEach(id=>{
+    const btn=document.getElementById('star-'+id); if(!btn) return;
+    const on=!!favs[id];
+    btn.textContent=on?'★':'☆'; btn.classList.toggle('active',on);
+  });
+  const n=Object.keys(favs).length;
+  document.getElementById('tab-favorites').textContent=n?`★ FAVORITES (${n})`:'★ FAVORITES';
+}
+
+// ── Favorites canvas ──────────────────────────────────────────────────────────
+function rebuildCanvas(){
+  const canvas=document.getElementById('fav-canvas');
+  const empty=document.getElementById('fav-empty');
+  const favs=loadFavs();
+  const ids=Object.keys(favs);
+
+  canvas.querySelectorAll('.fav-widget').forEach(el=>{ if(!favs[el.dataset.id]) el.remove(); });
+
+  ids.forEach(id=>{
+    const f=favs[id];
+    const def=getFavDef(id); if(!def) return;
+    let el=[...canvas.querySelectorAll('.fav-widget')].find(e=>e.dataset.id===id)||null;
+    if(!el){ el=makeFavWidget(id,f); if(!el) return; canvas.appendChild(el); }
+    el.style.left=f.x+'px'; el.style.top=f.y+'px';
+    el.style.width=f.w+'px'; el.style.height=f.h+'px';
+    el.classList.toggle('locked',layoutLocked);
+    el.classList.toggle('scale-mode',!!f.scale);
+    const sb=el.querySelector('.scale-btn'); if(sb) sb.classList.toggle('on',!!f.scale);
+  });
+
+  empty.style.display=ids.length?'none':'block';
+  if(lastData) render(lastData);
+}
+
+function makeFavWidget(id, favData){
+  const def=getFavDef(id); if(!def) return null;
+  const escId=`'${id.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}' `;
+  const el=document.createElement('div');
+  el.className='fav-widget'+(favData.scale?' scale-mode':'');
+  el.dataset.id=id;
+  el.style.zIndex=++favZMax;
+  el.innerHTML=`
+    <div class="fav-widget-header">
+      <span class="fav-widget-title" title="${ea(def.label)}">${ea(def.label)}</span>
+      <div class="fav-widget-btns">
+        <button class="fav-btn scale-btn ${favData.scale?'on':''}" title="Toggle scale content" onclick="toggleWidgetScale(${escId})">⊡</button>
+        <button class="fav-btn" title="Remove" onclick="removeFav(${escId})">×</button>
+      </div>
+    </div>
+    <div class="fav-widget-body"><div data-widget="${ea(id)}"></div></div>
+    <div class="fav-resize-handle"></div>`;
+  attachDragResize(el, id, def);
+  // ResizeObserver for scale mode
+  const body=el.querySelector('.fav-widget-body');
+  new ResizeObserver(()=>applyScale(el)).observe(body);
+  return el;
+}
+
+// ── Drag & Resize ─────────────────────────────────────────────────────────────
+function attachDragResize(el, id, def){
+  const header=el.querySelector('.fav-widget-header');
+  const handle=el.querySelector('.fav-resize-handle');
+  let mode=null, sx,sy,sl,st,sw,sh;
+
+  function onDown(e,m){
+    if(layoutLocked) return;
+    if(e.target.classList.contains('fav-btn')) return;
+    e.preventDefault(); e.stopPropagation();
+    mode=m; sx=e.clientX; sy=e.clientY;
+    sl=parseInt(el.style.left)||0; st=parseInt(el.style.top)||0;
+    sw=parseInt(el.style.width)||def.defaultW; sh=parseInt(el.style.height)||def.defaultH;
+    el.style.zIndex=++favZMax;
+    el.setPointerCapture(e.pointerId);
+    if(m==='drag') el.classList.add('dragging');
+  }
+  function onMove(e){
+    if(!mode) return;
+    const dx=e.clientX-sx, dy=e.clientY-sy;
+    if(mode==='drag'){
+      const nx=Math.max(0,Math.round((sl+dx)/SNAP)*SNAP);
+      const ny=Math.max(0,Math.round((st+dy)/SNAP)*SNAP);
+      el.style.left=nx+'px'; el.style.top=ny+'px';
+    } else {
+      const nw=Math.max(def.minW||120,Math.round((sw+dx)/SNAP)*SNAP);
+      const nh=Math.max(def.minH||90,Math.round((sh+dy)/SNAP)*SNAP);
+      el.style.width=nw+'px'; el.style.height=nh+'px';
+      applyScale(el);
+    }
+  }
+  function onUp(){
+    if(!mode) return;
+    el.classList.remove('dragging');
+    const favs=loadFavs();
+    if(favs[id]){
+      favs[id].x=parseInt(el.style.left)||0; favs[id].y=parseInt(el.style.top)||0;
+      favs[id].w=parseInt(el.style.width)||def.defaultW; favs[id].h=parseInt(el.style.height)||def.defaultH;
+      saveFavs(favs);
+    }
+    mode=null;
+  }
+  header.addEventListener('pointerdown', e=>onDown(e,'drag'));
+  handle.addEventListener('pointerdown', e=>onDown(e,'resize'));
+  el.addEventListener('pointermove', onMove);
+  el.addEventListener('pointerup', onUp);
+  el.addEventListener('pointercancel', onUp);
+}
+
+// ── Toolbar actions ───────────────────────────────────────────────────────────
+function fitAll(){
+  const wrap=document.getElementById('fav-canvas-wrap');
+  const ws=document.querySelectorAll('.fav-widget');
+  if(!ws.length) return;
+  let minX=Infinity, minY=Infinity;
+  ws.forEach(w=>{minX=Math.min(minX,parseInt(w.style.left)||0);minY=Math.min(minY,parseInt(w.style.top)||0);});
+  wrap.scrollTo({left:Math.max(0,minX-20),top:Math.max(0,minY-20),behavior:'smooth'});
+}
+function resetFavLayout(){
+  const favs=loadFavs(); const ids=Object.keys(favs);
+  ids.forEach((id,i)=>{ const d=getFavDef(id); if(!d) return; favs[id]={...favs[id],x:20+(i%3)*(d.defaultW+20),y:20+Math.floor(i/3)*(d.defaultH+20),w:d.defaultW,h:d.defaultH}; });
+  saveFavs(favs); rebuildCanvas();
+}
+
+// ── View switching ────────────────────────────────────────────────────────────
+function showView(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  if(name==='favorites'){ rebuildCanvas(); if(lastData) render(lastData); }
+}
+
+function setTempUnit(u){
+  tempUnit=u;
+  const s=loadSettings(); s.tempUnit=u; saveSettings(s);
+  document.querySelectorAll('.btn-tu').forEach(b=>b.classList.toggle('active',b.dataset.u===u));
+  if(lastData) render(lastData);
+}
+function setClockFormat(is24){
+  clock24h=is24;
+  const s=loadSettings(); s.clock24h=is24; saveSettings(s);
+  document.querySelectorAll('.btn-clk').forEach(b=>b.classList.toggle('active',b.dataset.v===(is24?'24':'12')));
+}
+function setRefreshRate(ms){
+  refreshMs=ms;
+  const s=loadSettings(); s.refreshMs=ms; saveSettings(s);
+  document.querySelectorAll('.btn-ref').forEach(b=>b.classList.toggle('active',+b.dataset.ms===ms));
+}
+function setCompact(v){
+  document.body.classList.toggle('compact',v);
+  const s=loadSettings(); s.compact=v; saveSettings(s);
+}
+function setColumns(n){
+  const g=document.querySelector('.grid');
+  if(g){ g.style.gridTemplateColumns=`repeat(${n},1fr)`; g.className=g.className.replace(/\bcols-\d\b/g,''); if(n<4) g.classList.add('cols-'+n); }
+  const s=loadSettings(); s.cols=n; saveSettings(s);
+  document.querySelectorAll('.btn-col').forEach(b=>b.classList.toggle('active',+b.dataset.n===n));
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+function openSettings() { document.getElementById('settings-panel').classList.add('open'); document.getElementById('settings-overlay').classList.add('open'); }
+function closeSettings(){ document.getElementById('settings-panel').classList.remove('open'); document.getElementById('settings-overlay').classList.remove('open'); }
+
+// ── Wake Lock ─────────────────────────────────────────────────────────────────
+let _wakeLock = null;
+async function requestWakeLock(){
+  if(!('wakeLock' in navigator)) return;
+  try{
+    _wakeLock = await navigator.wakeLock.request('screen');
+    _wakeLock.addEventListener('release', ()=>{ _wakeLock=null; });
+  }catch(e){}
+}
+function releaseWakeLock(){
+  if(_wakeLock){ _wakeLock.release(); _wakeLock=null; }
+}
+// Re-acquire when tab becomes visible (Android releases lock on screen-off regardless of fullscreen API)
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible') requestWakeLock();
+});
+// Acquire on load so Android users don't need to tap fullscreen button
+document.addEventListener('DOMContentLoaded', ()=>{ requestWakeLock(); });
+
+// ── Fullscreen ────────────────────────────────────────────────────────────────
+function toggleFS(){
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+  else document.exitFullscreen();
+}
+document.addEventListener('fullscreenchange',()=>{
+  const on=!!document.fullscreenElement;
+  const btn=document.getElementById('btn-fs');
+  if(btn){ btn.style.color=on?'var(--glow)':''; btn.title=on?'Exit Fullscreen':'Fullscreen'; }
+  if(on) requestWakeLock(); else releaseWakeLock();
+});
+
+// ── Clock ─────────────────────────────────────────────────────────────────────
+function fmtClock(){ return new Date().toLocaleTimeString(clock24h?'it-IT':'en-US',clock24h?{}:{hour12:true}); }
+setInterval(()=>document.getElementById('clock').textContent=fmtClock(),1000);
+document.getElementById('clock').textContent=fmtClock();
+
+// ── SSE ───────────────────────────────────────────────────────────────────────
+function connect(){
+  const dot=document.getElementById('status-dot');
+  const src=new EventSource(`${BACKEND}/stream`);
+  src.onopen=()=>{
+    dot.style.background='var(--glow)'; dot.style.boxShadow='0 0 8px var(--glow)'; dot.style.animation='pulse 1.4s ease-in-out infinite';
+    setTimeout(()=>document.getElementById('overlay').classList.add('hidden'),400);
+  };
+  src.onmessage=e=>{
+    const now=Date.now(); if(now-lastRenderTs<refreshMs) return; lastRenderTs=now;
+    try{ const d=JSON.parse(e.data); if(!d.error) render(d); }catch(err){ console.error(err); }
+  };
+  src.onerror=()=>{
+    dot.style.background='var(--danger)'; dot.style.boxShadow='0 0 8px var(--danger)'; dot.style.animation='none';
+    _prevNet=null; _prevNetTime=null;
+    src.close(); setTimeout(connect,3000);
+  };
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+(function init(){
+  const s=loadSettings();
+  applyDOM(s); buildThemePresets(); syncUI(s);
+  document.querySelectorAll('[data-widget]').forEach(el=>ensureInit(el));
+  updateStars();
+  connect();
+})();
+</script>
+</body>
+</html>
