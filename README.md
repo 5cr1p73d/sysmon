@@ -13,7 +13,6 @@ Grab the latest release from the [Releases](../../releases/latest) page — no P
 | File | Description |
 |------|-------------|
 | `SYSMON.exe` | Portable single-file executable |
-| `SYSMON_Setup.exe` | Windows installer |
 
 ---
 
